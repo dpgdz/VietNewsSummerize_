@@ -46,7 +46,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: trained-model
-          path: models/production/
+          path: mlartifacts
 
   # Step 3: Register the Model in MLflow
   register_model:
