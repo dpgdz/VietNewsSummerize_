@@ -25,23 +25,20 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd VietNewsSummerize-crawl_17-05
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then
            pip install -r requirements.txt
           fi
       - name: Run scraper script
         run: |
-          cd VietNewsSummerize-crawl_17-05
           python scr/Scraper/main.py
 
       - name: Commit and push updated data
         run: |
-          cd VietNewsSummerize-crawl_17-05
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git pull origin main
-          git add Crawler/Data/
+          git add data/Data/
           git commit -m "Auto update crawled data" || echo "No changes to commit"
           git push origin main
         env:
