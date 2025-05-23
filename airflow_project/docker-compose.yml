@@ -1,0 +1,73 @@
+version: '3.7'
+
+x-airflow-common:
+  &airflow-common
+  image: apache/airflow:2.8.1-python3.10
+  environment:
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
+  volumes:
+    - .:/opt/airflow
+    - ./requirements.txt:/requirements.txt
+  user: "50000:0"
+  depends_on:
+    - postgres
+    - redis
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+
+  redis:
+    image: redis:latest
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash -c "
+      pip install --no-cache-dir -r /requirements.txt && \
+      airflow db init && \
+      airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin"
+    restart: on-failure
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: bash -c "pip install --no-cache-dir google-generativeai && airflow webserver"
+    ports:
+      - "8080:8080"
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: bash -c "pip install --no-cache-dir google-generativeai && airflow scheduler"
+    depends_on:
+      - postgres
+      - redis
+      - airflow-webserver
+    restart: always
+
+  airflow-worker:
+    <<: *airflow-common
+    command: bash -c "pip install --no-cache-dir google-generativeai && airflow celery worker"
+    depends_on:
+      - postgres
+      - redis
+      - airflow-webserver
+    restart: always
+
+volumes:
+  postgres-db-volume:

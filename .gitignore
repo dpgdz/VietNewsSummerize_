@@ -35,3 +35,6 @@ workflows/ *.yml
 workflows/
 
 mlflow.db
+
+.history/
+.history/*
