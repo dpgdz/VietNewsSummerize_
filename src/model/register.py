@@ -100,7 +100,21 @@ def register_model(source_name: str, model_dir: str, alias: str = "Staging", rou
     client.set_model_version_tag(name=model_name, version=result.version, key="model_version", value=alias)
     
     if training_run_id:
-        client.set_model_version_tag(name=model_name, version=result.version, key="training_run_id", value=training_run_id)
+        client.set_model_version_tag(
+            name=model_name,
+            version=result.version,
+            key="training_run_id",
+            value=training_run_id
+        )
+
+        tracking_ui = config["mlflow"]["tracking_uri"].rstrip("/")
+        training_url = f"{tracking_ui}/#/experiments/{experiment_id}/runs/{training_run_id}"
+        client.set_model_version_tag(
+            name=model_name,
+            version=result.version,
+            key="training_run_url",
+            value=training_url
+        )
 
 
     client.set_terminated(run_id, status="FINISHED")

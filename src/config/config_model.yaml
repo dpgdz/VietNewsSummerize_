@@ -76,8 +76,8 @@ experiments:
 
 
 train_args:
-  epochs: 2
-  batch_size: 1
+  epochs: 10
+  batch_size: 4
   learning_rate: 0.00002
   weight_decay: 0.01
   warmup_steps: 500

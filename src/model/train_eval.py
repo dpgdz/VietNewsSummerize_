@@ -34,11 +34,11 @@ class MLflowClientLoggingCallback(TrainerCallback):
         self.run_id = run_id
         self.client = client
 
-    def on_evaluate(self, args, state, control, metrics=None, **kwargs):
-        if metrics is not None:
-            step = int(state.epoch)
-            for k, v in metrics.items():
-                if isinstance(v, (int, float)):
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if logs is not None:
+            step = int(state.epoch or state.global_step)
+            for k, v in logs.items():
+                if isinstance(v, (int, float)) and not k.startswith("total_"):
                     self.client.log_metric(run_id=self.run_id, key=k, value=v, step=step)
 
 

@@ -16,7 +16,7 @@ services:
       - grafana-storage:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=helodpg123
+      - GF_SECURITY_ADMIN_PASSWORD=mloopsvienews
 
 
   node_exporter:
