@@ -14,6 +14,10 @@ services:
       - "3001:3000"
     volumes:
       - grafana-storage:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=helodpg123
+
 
   node_exporter:
     image: quay.io/prometheus/node-exporter:latest
@@ -22,14 +26,14 @@ services:
       - "9100:9100"
     command:
       - '--path.rootfs=/host'
-    # network_mode: host
+
     pid: host
     restart: unless-stopped
     volumes:
       - '/:/host:ro,rslave'
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1  # replace with the latest version if needed
+    image: gcr.io/cadvisor/cadvisor:v0.49.1  
     container_name: cadvisor
     privileged: true
     ports:
