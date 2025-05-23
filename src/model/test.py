@@ -93,6 +93,9 @@ def daily_evaluate():
     client.log_param(run_id, "base_rougeL", base_rougeL)
     client.log_param(run_id, "current_rougeL", metrics["rougeL"])
 
+    run_name = f"daily_eval_timestamp_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    client.update_run(run_id, name=run_name)
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     os.makedirs("results", exist_ok=True)
     pd.DataFrame([metrics]).to_csv(f"results/daily_eval_{timestamp}.csv", index=False)

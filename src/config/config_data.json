@@ -1,0 +1,10 @@
+[
+    {
+        "name": "VNExpress",
+        "headle": true,
+        "base_url": "https://vnexpress.net/",
+        "output_csv": "data/Data/vnexpress_articles.csv",
+        "process": "data/Data/vnexpress_process.csv"
+    }
+
+]

@@ -55,6 +55,10 @@ def daily_summarize():
     run = client.create_run(experiment_id=experiment_id)
     run_id = run.info.run_id
 
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_name = f"daily_summarize_{timestamp}"
+    client.update_run(run_id, name=run_name)
+
     client.log_param(run_id, "predict", "daily")
     client.log_param(run_id, "model_source", "production")
     client.log_param(run_id, "raw_data_path", dataset_path)

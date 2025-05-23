@@ -36,7 +36,11 @@ def register_model(source_name: str, model_dir: str, alias: str = "Staging", rou
     else:
         experiment_id = experiment.experiment_id
 
+
     run = client.create_run(experiment_id=experiment_id)
+    run_name = f"{source_name}_model_{alias}_dir_{os.path.basename(model_dir)}"
+    run = client.create_run(experiment_id=experiment_id, tags={"run_name": run_name})
+
     run_id = run.info.run_id
 
     allowed_exts = {".bin", ".json", ".txt", ".model", ".vocab", ".config,",".safetensors"}

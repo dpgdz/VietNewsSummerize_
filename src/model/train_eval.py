@@ -41,6 +41,13 @@ def find_best_checkpoint(model_path):
         return os.path.join(model_path, latest_checkpoint)
     return model_path
 
+def generate_run_name(source, run_id, rouge_score=None):
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_name = f"{source}_run_{run_id[:8]}_timestamp_{timestamp}"
+    if rouge_score is not None:
+        run_name += f"_rougeL_{rouge_score:.2f}"
+    return run_name
+
 def get_model_tokenizer(source: str):
     if source == "bartpho-base":
         model_id = config["model"]["base_model_hf"]
@@ -223,6 +230,10 @@ def train_and_eval_log(source):
     run = client.create_run(experiment_id)
     run_id = run.info.run_id
     client.log_param(run_id, "model_source", source)
+
+
+    run_name = generate_run_name(source, run_id)
+    client.update_run(run_id, name=run_name)
 
     run_id_short = run_id[:8]
     output_dir = os.path.join(config["paths"]["output_dir"], f"{source}_{run_id_short}")
