@@ -1,0 +1,37 @@
+models/ 
+models/*
+
+outputs/
+outputs/*
+
+mlflow.db/*
+mlruns/
+mlruns/*
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.egg
+*.whl
+*.tar.gz
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+
+*.log
+
+mlartifacts/
+
+workflows/
+workflows/*
+
+workflows/ *.yaml
+workflows/ *.yml
+
+workflows/
+
+mlflow.db
