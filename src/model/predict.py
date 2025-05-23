@@ -11,8 +11,10 @@ from src.model.fetch_model import fetch_model_from_logged_artifact
 from mlflow.tracking import MlflowClient
 import yaml
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 with open("src/config/config_model.yaml") as f:
     config = yaml.safe_load(f)
+
 max_len = config["predict"]["max_length"]
 
 def generate_summaries(model, tokenizer, contents, max_len=max_len):
@@ -42,7 +44,13 @@ def daily_summarize():
 
     dataset_path = config["predict"]["data_path"]
     df = pd.read_csv(dataset_path)
-    contents = df["content"].tolist()
+    content_col = "content" if "content" in df.columns else "article"
+
+    contents = [c if c is not None else "" for c in df[content_col]]
+    if "summary" in df.columns:
+        summaries = [s if s is not None else "" for s in df["summary"]]
+    else:
+        summaries = None
 
     preds = generate_summaries(model, tokenizer, contents, max_len)
 
@@ -50,10 +58,25 @@ def daily_summarize():
     output_path = config["predict"]["output_path"]
     df.to_csv(output_path, index=False)
 
-    experiment = client.get_experiment_by_name(config["mlflow"]["experiment_name"])
-    experiment_id = experiment.experiment_id if experiment else client.create_experiment(config["mlflow"]["experiment_name"])
+    experiment_name = config["mlflow"]["experiments"]["prediction"]
+    experiment = client.get_experiment_by_name(experiment_name)
+    experiment_id = experiment.experiment_id if experiment else client.create_experiment(experiment_name)
     run = client.create_run(experiment_id=experiment_id)
     run_id = run.info.run_id
+
+    client.set_tag(run_id, "pipeline", "prediction")
+    client.set_tag(run_id, "run_type", "daily")
+    client.set_tag(run_id, "task", "summarize_news")
+    client.set_tag(run_id, "stage", "inference")
+    client.set_tag(run_id, "dashboard", "true")
+    client.set_tag(run_id, "owner", "prediction-service")
+
+    client.log_param(run_id, "predict_type", "daily_batch")
+    client.log_metric(run_id, "num_samples", len(df))
+    client.log_metric(run_id, "max_len", max_len)
+    client.log_param(run_id, "tokenizer", tokenizer.name_or_path)
+    client.log_param(run_id, "model_class", model.__class__.__name__)
+    client.log_param(run_id, "model_version", "v1.0")
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_name = f"daily_summarize_{timestamp}"
@@ -64,6 +87,7 @@ def daily_summarize():
     client.log_param(run_id, "raw_data_path", dataset_path)
     client.log_param(run_id, "output_path", output_path)
     client.log_param(run_id, "timestamp", datetime.now().isoformat())
+
 
     if "summary" in df.columns:
         references = df["summary"].tolist()

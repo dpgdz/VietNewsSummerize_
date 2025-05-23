@@ -30,10 +30,8 @@ class VNExpressScraper(BaseScraper):
                 if main_link.startswith('/'):
                     main_link = 'https://vnexpress.net' + main_link
 
-                # Thêm chuyên mục chính
                 categories.append((main_category, None, main_link))
 
-                # Truy cập chuyên mục chính để lấy chuyên mục phụ
                 try:
                     res_sub = requests.get(main_link, timeout=10)
                     soup_sub = BeautifulSoup(res_sub.text, 'html.parser')
@@ -64,17 +62,18 @@ class VNExpressScraper(BaseScraper):
                 time.sleep(0.5)
 
         print(f"[+] Tìm thấy {len(categories)} chuyên mục & tiểu mục")
+        print(categories)
         return categories
 
     def scrape(self):
         print("[+] Bắt đầu crawl VNExpress...")
         categories = self.get_categories()
         article_counter = 1
-        today = datetime.now().strftime("%-d/%-m/%Y")  # For comparison
-        today_str = datetime.now().strftime("%d%m%y")  # For ID formatting
+        today = datetime.now().strftime("%-d/%-m/%Y")
+        today_str = datetime.now().strftime("%d%m%y")
 
         for main_cat, sub_cat, base_url in categories:
-            for page in range(1, 3):  # crawl 1-5 page mỗi chuyên mục
+            for page in range(1, 6):
                 url = base_url if page == 1 else f"{base_url}-p{page}"
                 try:
                     response = requests.get(url)
@@ -93,6 +92,13 @@ class VNExpressScraper(BaseScraper):
                     try:
                         article_res = requests.get(link)
                         article_soup = BeautifulSoup(article_res.text, 'html.parser')
+
+                        # Lấy sub_category từ meta
+                        meta_folder = article_soup.find('meta', attrs={'name': 'tt_list_folder_name'})
+                        if meta_folder and 'content' in meta_folder.attrs:
+                            folder_parts = meta_folder['content'].split(',')
+                            if len(folder_parts) >= 3:
+                                sub_cat = folder_parts[2].strip()
 
                         time_tag = article_soup.find('span', class_='date')
                         date_raw = time_tag.get_text(strip=True) if time_tag else None

@@ -41,6 +41,5 @@ def preprocess_news(input_path, output_path):
     df.to_csv(output_path, index=False)
     print(f"[+] Đã lưu dữ liệu đã xử lý vào: {output_path}")
 
-
 if __name__ == "__main__":
     preprocess_news("data/Data/vnexpress_articles.csv", "data/Data/vnexpress_process.csv")

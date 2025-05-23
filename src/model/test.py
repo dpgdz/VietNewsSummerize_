@@ -48,17 +48,34 @@ def daily_evaluate():
     preds = generate_summaries(model, tokenizer, contents, config["predict"]["max_length"])
     metrics = compute_metrics(preds, references, tokenizer)
 
-    experiment = client.get_experiment_by_name(config["mlflow"]["experiment_name"])
-    if experiment is None:
-        experiment_id = client.create_experiment(config["mlflow"]["experiment_name"])
-    else:
-        experiment_id = experiment.experiment_id
+
+    experiment_name = config["mlflow"]["experiments"]["daily_eval"]
+    experiment = client.get_experiment_by_name(experiment_name)
+    experiment_id = experiment.experiment_id if experiment else client.create_experiment(experiment_name)
     run = client.create_run(experiment_id=experiment_id)
     run_id = run.info.run_id
+
+    run_name = f"daily_eval_timestamp_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    client.update_run(run_id, name=run_name)
+
+    client.set_tag(run_id, "pipeline", "evaluation")
+    client.set_tag(run_id, "model_source", "production")
+    client.set_tag(run_id, "run_type", "daily")
+    client.set_tag(run_id, "task", "rouge_monitoring")
+    client.set_tag(run_id, "stage", "post_deploy")
+    client.set_tag(run_id, "dashboard", "true")
+    client.set_tag(run_id, "owner", "monitoring-system")
 
     client.log_param(run_id, "eval_type", "daily")
     client.log_param(run_id, "model_source", "production")
     client.log_param(run_id, "eval_data", dataset_path)
+    client.log_param(run_id, "model_version", "v1.0")
+    client.log_metric(run_id, "num_samples", len(df))
+    client.log_metric(run_id, "summary_max_len", max_len)
+
+    client.log_param(run_id, "tokenizer", tokenizer.name_or_path)
+    client.log_param(run_id, "model_class", model.__class__.__name__) 
+    client.log_param(run_id, "test_type", "daily_eval")
 
     for k, v in metrics.items():
         client.log_metric(run_id, k, v)
@@ -82,6 +99,8 @@ def daily_evaluate():
 
     drop = base_rougeL - metrics["rougeL"]
     print(f"rougeL drop: {drop:.2f} points")
+    client.log_metric(run_id, "rouge_drop", drop)
+
 
     if drop > THRESHOLD_DROP:
         print("Performance dropped! Retraining needed.")
@@ -99,6 +118,8 @@ def daily_evaluate():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     os.makedirs("results", exist_ok=True)
     pd.DataFrame([metrics]).to_csv(f"results/daily_eval_{timestamp}.csv", index=False)
+
+    client.log_artifact(run_id, f"results/daily_eval_{timestamp}.csv")
 
     return retrain
 

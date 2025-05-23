@@ -1,61 +1,60 @@
+
+    
 import pandas as pd
 import google.generativeai as genai
 import os
 import time
+from tqdm import tqdm
+from datetime import datetime
 
-# ===== 1. Danh sách API keys =====
-API_KEYS = {
-    "key1": "AIzaSyDbyeu_mamcJ_mnCz0x8rn9Bs01hb0ZGCc",
-    "key2": "AIzaSyDBXNxq_PbOoSPqv-5GJCwvWH0oq1osQmk",
-    "key3": "AIzaSyDQswTsiCWLMTnSXseMQVZakafp22t7DVM",
-    "key4": "AIzaSyCqslFtxh5PDhzdmsxfZy7ZYRl-q2Z0v_w",
-    "key5": "AIzaSyAxyvaRN6fu4nehGap3xfDCaLUHdM0_YG0",
-    "key6": "AIzaSyCFUllRgNCmXweTClrsGxQY6vWY0HN4_Jw",
-    "key7": "AIzaSyDYK4LxQo9-silCZIfQ7dqZZecdhTA_el4",
-    "key8": "AIzaSyA4LvQA-8waUaDXK0blWtO-WK4h8SmJ_70",
-    "key9": "AIzaSyBCauksOW9ldpzh33E4ZpjyLdl9m3MSS7c",
-    "key10": "AIzaSyAIk45prXMSj8CUCEvWgdGNaJ4pMoSJvPk",
-    "key11": "AIzaSyDEw9gZtUqms58TxWTfEgBPWQhdOEte5pQ",
-    "key12": "AIzaSyCB2anT6gyrEPkccDo-MuvXPrGw3xQPwQc",
-    "key13": "AIzaSyDv-vLnvpAU9jC7Bl1OmNZFzCUhlZT5UH4",
-    "key14": "AIzaSyD_BpKqaSl0pgknBvdef0aLIRsxkMAOMBo",
-    "key15": "AIzaSyAMm6SraniUoWBFaIrkeFc19G7zK39F--E",
-    "key16": "AIzaSyBmkbV2FTCiHiUtI74AZ7cJoCBtwPgeiew",
-}
+# Danh sách API keys dự phòng
+API_KEYS = [
+    "AIzaSyDbyeu_mamcJ_mnCz0x8rn9Bs01hb0ZGCc",
+    "AIzaSyDBXNxq_PbOoSPqv-5GJCwvWH0oq1osQmk",
+    "AIzaSyDQswTsiCWLMTnSXseMQVZakafp22t7DVM",
+    "AIzaSyCqslFtxh5PDhzdmsxfZy7ZYRl-q2Z0v_w",
+    "AIzaSyAxyvaRN6fu4nehGap3xfDCaLUHdM0_YG0",
+    "AIzaSyCFUllRgNCmXweTClrsGxQY6vWY0HN4_Jw",
+    "AIzaSyA4LvQA-8waUaDXK0blWtO-WK4h8SmJ_70",
+    "AIzaSyAIk45prXMSj8CUCEvWgdGNaJ4pMoSJvPk",
+    "AIzaSyDEw9gZtUqms58TxWTfEgBPWQhdOEte5pQ",
+    "AIzaSyD_BpKqaSl0pgknBvdef0aLIRsxkMAOMBo",
+    "AIzaSyDv-vLnvpAU9jC7Bl1OmNZFzCUhlZT5UH4",
+    "AIzaSyCREujHFsB7g4zLt6f-nwbAIYyO7pogcJw",
+    "AIzaSyCU1_x3mIdILIAaLm1zAc51AOv7RrGROig"
+]
 
-# ===== 2. Hàm tạo model từ API key =====
-def load_model(api_key):
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel("models/gemini-2.0-flash")
+# Thiết lập API key đầu tiên
+current_key_index = 0
+genai.configure(api_key=API_KEYS[current_key_index])
+model = genai.GenerativeModel("models/gemini-2.0-flash")
 
-# ===== 3. Hàm tóm tắt 1 đoạn văn bản =====
-def summarize_text(text, max_len=3000):
+def switch_api_key():
+    global current_key_index, model
+    current_key_index = (current_key_index + 1) % len(API_KEYS)
+    genai.configure(api_key=API_KEYS[current_key_index])
+    model = genai.GenerativeModel("models/gemini-2.0-flash")
+    print(f"[!] Đã chuyển sang API key thứ {current_key_index + 1}/{len(API_KEYS)}")
+
+# Hàm tóm tắt văn bản
+def summarize_text(text, max_len=3000, retry=3):
     text = str(text)
     if len(text) > max_len:
         text = text[:max_len]
 
     prompt = f"Tóm tắt văn bản sau trong 3 đến 4 câu:\n\n{text}"
 
-    max_attempts = 3
-    for attempt in range(max_attempts):
-        for name, key in API_KEYS.items():
-            try:
-                model = load_model(key)
-                response = model.generate_content(prompt)
-                return response.text.strip()
-            except Exception as e:
-                if "429" in str(e) or "quota" in str(e).lower():
-                    print(f"[!] Key '{name}' bị quota (429). Thử key khác...")
-                else:
-                    print(f"[!] Lỗi với key '{name}': {e}")
-                continue
-        # Nếu tất cả key đều fail
-        print(f"[!] Tạm nghỉ 15 giây (lần {attempt+1}/{max_attempts}) vì quota toàn bộ...")
-        time.sleep(15)
+    for _ in range(retry):
+        try:
+            response = model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            print(f"[!] Lỗi khi gọi API: {e}")
+            switch_api_key()
+            time.sleep(1)
+    return ""
 
-    return "[!] Tóm tắt thất bại vì quá hạn mức."
-
-# ===== 4. Hàm xử lý tóm tắt toàn bộ file =====
+# Hàm tóm tắt file tin tức
 def summarize_news(input_path, output_path):
     if not os.path.exists(input_path):
         print(f"[!] File {input_path} không tồn tại.")
@@ -63,25 +62,39 @@ def summarize_news(input_path, output_path):
 
     df = pd.read_csv(input_path)
 
-    if "content" not in df.columns:
-        print(f"[!] Không tìm thấy cột 'content' trong file {input_path}.")
+    if "content" not in df.columns or "id" not in df.columns:
+        print(f"[!] Thiếu cột 'content' hoặc 'id' trong file {input_path}.")
         return
 
-    print(f"[*] Bắt đầu tóm tắt: {len(df)} dòng từ {input_path}")
-    
-    summaries = []
-    for idx, content in enumerate(df["content"]):
-        print(f"[{idx+1}/{len(df)}] Đang tóm tắt...")
-        summary = summarize_text(content)
-        summaries.append(summary)
+    # Lấy ngày hôm nay theo định dạng ddmmyy
+    today_str = datetime.today().strftime("%d%m%y")
 
-    df["summary"] = summaries
-    df.to_csv(output_path, index=False)
-    print(f"[+] Đã lưu dữ liệu tóm tắt vào: {output_path}")
+    # Lọc các bài có id chứa ngày hôm nay
+    df_today = df[df["id"].astype(str).str.contains(today_str)]
+    print(f"[*] Có {len(df_today)} bài viết của ngày hôm nay ({today_str}).")
 
-# ===== 5. Run trực tiếp =====
+    if df_today.empty:
+        print("[*] Không có bài viết nào hôm nay.")
+        return
+
+    # Lấy ngẫu nhiên 50 bài (hoặc ít hơn nếu không đủ)
+    df_to_summarize = df_today.sample(n=min(50, len(df_today)), random_state=42)
+
+    tqdm.pandas()
+    df_to_summarize["summary"] = df_to_summarize["content"].progress_apply(summarize_text)
+
+    df_to_summarize.to_csv(output_path, index=False)
+    print(f"[+] Đã lưu kết quả tóm tắt vào: {output_path}")
+
+# Chạy nhiều file
 if __name__ == "__main__":
-    summarize_news(
-        "data/Data/vnexpress_process.csv",
-        "data/Data/vnexpress_summarized.csv"
-    )
+    file_pairs = [
+        (
+            "data/Data/data_raw_cleaned.csv",
+            "data/Data/data_process_summarized.csv"
+        )
+    ]
+
+    for input_file, output_file in file_pairs:
+        print(f"\n=== TÓM TẮT FILE: {input_file} ===")
+        summarize_news(input_file, output_file)

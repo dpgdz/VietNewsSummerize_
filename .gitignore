@@ -35,3 +35,8 @@ workflows/ *.yml
 workflows/
 
 mlflow.db
+
+# Ignore all files except for outputs and data
+/*
+!/data/
+!/outputs/

@@ -1,6 +1,7 @@
 import os
 import sys
 import yaml
+import time
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 with open("src/config/config_model.yaml") as f:
@@ -11,7 +12,7 @@ import mlflow
 from transformers import AutoTokenizer, MBartForConditionalGeneration
 from mlflow.tracking import MlflowClient
 
-def register_model(source_name: str, model_dir: str, alias: str = "Staging", rouge: int = 0):
+def register_model(source_name: str, model_dir: str, alias: str = "Staging", rouge: int = 0, training_run_id: str = None):
     model_name = config["mlflow"]["model_name"]
     artifact_path = f"{source_name}_retrain"
     tracking_uri = config["mlflow"]["tracking_uri"]
@@ -30,20 +31,25 @@ def register_model(source_name: str, model_dir: str, alias: str = "Staging", rou
     mlflow.set_tracking_uri(tracking_uri)
     client = MlflowClient()
     # tokenizer = AutoTokenizer.from_pretrained(model_dir)
-    experiment = client.get_experiment_by_name(config["mlflow"]["experiment_name"])
-    if experiment is None:
-        experiment_id = client.create_experiment(config["mlflow"]["experiment_name"])
-    else:
-        experiment_id = experiment.experiment_id
-
+    experiment_name = "model-register"
+    experiment = client.get_experiment_by_name(experiment_name)
+    experiment_id = experiment.experiment_id if experiment else client.create_experiment(experiment_name)
 
     run = client.create_run(experiment_id=experiment_id)
+    run_id = run.info.run_id 
     run_name = f"{source_name}_model_{alias}_dir_{os.path.basename(model_dir)}"
-    run = client.create_run(experiment_id=experiment_id, tags={"run_name": run_name})
+    client.update_run(run_id, name=run_name)
 
-    run_id = run.info.run_id
 
-    allowed_exts = {".bin", ".json", ".txt", ".model", ".vocab", ".config,",".safetensors"}
+    client.set_tag(run_id, "pipeline", "registration")
+    client.set_tag(run_id, "model_source", source_name)
+    client.set_tag(run_id, "alias", alias)
+    client.set_tag(run_id, "dashboard", "true")
+    client.set_tag(run_id, "task", "register")
+    client.set_tag(run_id, "stage", "finalize")
+    client.set_tag(run_id, "owner", "registry-bot")
+
+    allowed_exts = {".bin", ".json", ".txt", ".model", ".vocab", ".config", ".safetensors"}
     allowed_files = []
     for root, _, files in os.walk(model_dir):
         for file in files:
@@ -67,6 +73,13 @@ def register_model(source_name: str, model_dir: str, alias: str = "Staging", rou
 
     result = mlflow.register_model(model_uri=model_uri, name=model_name)
 
+    import time
+    for _ in range(10):
+        model_ver = client.get_model_version(name=model_name, version=result.version)
+        if model_ver.status == "READY":
+            break
+        time.sleep(1)
+
     try:
         existing = client.get_model_version_by_alias(model_name, alias)
         if existing:
@@ -84,6 +97,11 @@ def register_model(source_name: str, model_dir: str, alias: str = "Staging", rou
     client.set_model_version_tag(name=model_name, version=result.version, key="source tag", value=source_tag)
     client.set_model_version_tag(name=model_name, version=result.version, key="source path", value=model_dir)
     client.set_model_version_tag(name=model_name, version=result.version, key="rougeL", value=str(rouge))
+    client.set_model_version_tag(name=model_name, version=result.version, key="model_version", value=alias)
+    
+    if training_run_id:
+        client.set_model_version_tag(name=model_name, version=result.version, key="training_run_id", value=training_run_id)
+
 
     client.set_terminated(run_id, status="FINISHED")
 

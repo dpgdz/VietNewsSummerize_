@@ -1,6 +1,10 @@
 mlflow:
   tracking_uri: http://127.0.0.1:5000
-  experiment_name: news_summary
+  experiments:
+    training: bartpho-training
+    evaluation: bartpho-eval
+    daily_eval: bartpho-daily-eval
+    prediction: bartpho-predict
   model_name: news-summary-bartpho
 
 model:
@@ -28,21 +32,21 @@ retrain:
     - production
   pretrain_ratio: 0.2
   new_data_ratio: 0.8
-  pretrain_data_path: data/pretrain/pretrain_dataset.csv
-  new_data_path: data/processed_labeled/
-  train_data_path: data/train.csv
-  eval_data_path: data/eval.csv
+  pretrain_data_path: postgre/data/pretrain/pretrain_dataset.csv
+  new_data_path: postgre/data/processed_labeled/
+  train_data_path: postgre/data/train.csv
+  eval_data_path: postgre/data/eval.csv
 
 predict:
   max_length: 256
   min_length: 20
   batch_size: 8
   use_gpu: true
-  data_path: data/daily_raw.csv
-  output_path: data/daily_summary.csv
+  data_path: postgre/data/daily_raw.csv
+  output_path: postgre/data/daily_summary.csv
 
 evaluation:
-  dataset_path: data/test.csv
+  dataset_path: postgre/data/test.csv
   metrics:
     - rouge1
     - rouge2
@@ -72,8 +76,8 @@ experiments:
 
 
 train_args:
-  epochs: 1
-  batch_size: 8
+  epochs: 2
+  batch_size: 1
   learning_rate: 0.00002
   weight_decay: 0.01
   warmup_steps: 500

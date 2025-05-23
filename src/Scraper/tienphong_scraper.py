@@ -35,7 +35,7 @@ class TienPhongScraper(BaseScraper):
     def scrape(self):
         seen_links = set()
         categories = self.get_categories()
-        num_pages = 2
+        num_pages = 5
         today = datetime.now().strftime("%d/%m/%Y")
         today_str = datetime.now().strftime("%d%m%y")
         article_counter = 1

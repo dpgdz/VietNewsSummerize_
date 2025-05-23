@@ -11,7 +11,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "6543:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-newsadmin} -d ${POSTGRES_DB:-newsdb}"]
       interval: 5s
@@ -31,6 +31,7 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-newsadmin}:${POSTGRES_PASSWORD:-123456}@db:5432/${POSTGRES_DB:-newsdb}
     volumes:
       - ./backend:/app
+      - ../models/production:/app/models/production 
     command: bash -c "python seed_data.py && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     restart: always
 

@@ -24,6 +24,23 @@ with open("src/config/config_model.yaml") as f:
     config = yaml.safe_load(f)
 
 from src.model.fetch_model import fetch_model_from_logged_artifact
+from transformers import TrainerCallback
+
+from transformers import TrainerCallback
+from mlflow.tracking import MlflowClient
+
+class MLflowClientLoggingCallback(TrainerCallback):
+    def __init__(self, run_id, client: MlflowClient):
+        self.run_id = run_id
+        self.client = client
+
+    def on_evaluate(self, args, state, control, metrics=None, **kwargs):
+        if metrics is not None:
+            step = int(state.epoch)
+            for k, v in metrics.items():
+                if isinstance(v, (int, float)):
+                    self.client.log_metric(run_id=self.run_id, key=k, value=v, step=step)
+
 
 def find_best_checkpoint(model_path):
     if os.path.basename(model_path).startswith('checkpoint-'):
@@ -89,10 +106,8 @@ def get_model_tokenizer(source: str):
 
 def preprocess_function(example, tokenizer, max_input_len, max_target_len):
     content_col = "content" if "content" in example else "article"
-    # Debug: kiểm tra kiểu dữ liệu
     assert isinstance(example[content_col], list), f"{content_col} is not a list"
     assert isinstance(example["summary"], list), "summary is not a list"
-    # Loại bỏ các phần tử None hoặc NaN nếu có
     contents = [c if c is not None else "" for c in example[content_col]]
     summaries = [s if s is not None else "" for s in example["summary"]]
     inputs = tokenizer(
@@ -177,8 +192,23 @@ def evaluate_on_test(model_path, model_name, client, experiment_id):
     client.log_param(run_id, "eval_dataset", config["evaluation"]["dataset_path"])
     client.log_param(run_id, "eval_type", "final_test")
 
+    client.set_tag(run_id, "pipeline", "evaluation")
+    client.set_tag(run_id, "model_source", model_name)
+    client.set_tag(run_id, "run_type", "from_training")
+    client.set_tag(run_id, "task", "final_eval")
+    client.set_tag(run_id, "stage", "post_train")
+    client.set_tag(run_id, "dashboard", "true")
+    client.set_tag(run_id, "owner", "evaluation-bot")
+
+
+    run_name = f"test_{model_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    client.update_run(run_id, name=run_name)
+    
+    i=0
+    
     for k, v in scores.items():
-        client.log_metric(run_id, f"test_{k}", v)
+        client.log_metric(run_id, f"test_{k}", v, step = i)
+        i+=1
 
     client.set_terminated(run_id, status="FINISHED")
     print(f"Logged test evaluation for '{model_name}' to MLflow")
@@ -221,16 +251,43 @@ def train_and_eval_log(source):
 
     mlflow.set_tracking_uri(config["mlflow"]["tracking_uri"])
     client = MlflowClient()
-    experiment = client.get_experiment_by_name(config["mlflow"]["experiment_name"])
-    if experiment is None:
-        experiment_id = client.create_experiment(config["mlflow"]["experiment_name"])
-    else:
+    experiment = client.get_experiment_by_name(config["mlflow"]["experiments"]["training"])
+    if experiment:
         experiment_id = experiment.experiment_id
+    else:
+        print("Experiment not found, creating a new one.")
+        experiment_id = client.create_experiment(config["mlflow"]["experiments"]["training"])
+        print(f"Created new experiment with ID: {experiment_id}")
 
     run = client.create_run(experiment_id)
     run_id = run.info.run_id
-    client.log_param(run_id, "model_source", source)
 
+    run_name = f"{source}_training_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    client.update_run(run_id, name=run_name)
+    client.log_param(run_id, "train_data", config["retrain"]["train_data_path"])
+    client.log_param(run_id, "eval_data", config["retrain"]["eval_data_path"])
+
+    client.log_metric(run_id,"train_len", len(train_ds))
+    client.log_metric(run_id,"eval_len", len(eval_ds))
+    args = config["train_args"]
+
+    client.log_param(run_id, "model_source", source)
+    client.log_param(run_id, "train_type", "supervised")
+    client.log_param(run_id, "epochs", args["epochs"])
+    client.log_param(run_id, "learning_rate", args["learning_rate"])
+    client.log_param(run_id, "generation_max_length", config["predict"]["max_length"])
+    client.log_param(run_id, "tokenizer", tokenizer.name_or_path)
+    client.log_param(run_id, "model_class", model.__class__.__name__)
+    client.log_param(run_id, "model_version", "v1.0")
+
+
+    client.set_tag(run_id, "pipeline", "training")
+    client.set_tag(run_id, "model_source", source)
+    client.set_tag(run_id, "run_type", "manual")
+    client.set_tag(run_id, "task", "finetune_summary")
+    client.set_tag(run_id, "stage", "pre_deploy")
+    client.set_tag(run_id, "dashboard", "true")
+    client.set_tag(run_id, "owner", "training-system")
 
     run_name = generate_run_name(source, run_id)
     client.update_run(run_id, name=run_name)
@@ -269,6 +326,13 @@ def train_and_eval_log(source):
         no_cuda= config['train_args']['no_cuda'],
         fp16=True,
     )
+    
+    client.log_param(run_id, "epochs", args["epochs"])
+    client.log_param(run_id, "learning_rate", args["learning_rate"])
+    client.log_param(run_id, "batch_size", batch_size)
+    client.log_param(run_id, "generation_max_length", config["predict"]["max_length"])
+    client.log_param(run_id, "tokenizer", tokenizer.name_or_path)
+    client.log_param(run_id, "model_class", model.__class__.__name__)
 
     trainer = Seq2SeqTrainer(
         model=model,
@@ -278,16 +342,25 @@ def train_and_eval_log(source):
         tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=2)],
+        callbacks=[
+            EarlyStoppingCallback(early_stopping_patience=2),
+            MLflowClientLoggingCallback(run_id=run_id, client=client)
+        ],
     )
 
     trainer.train()
+ 
     eval_metrics = trainer.evaluate()
+    epoch = int(eval_metrics.get("epoch", 1)) 
     for k, v in eval_metrics.items():
-        client.log_metric(run_id, k, v)
+        if k != "epoch":
+            client.log_metric(run_id, k, v, step=epoch)
+
+
 
     model_output_path = os.path.join(output_dir, "model_files")
     log_model_as_artifact(model, tokenizer, model_output_path, client, run_id)
+    client.log_artifact(run_id, "src/config/config_model.yaml")
     client.set_terminated(run_id, status="FINISHED")
 
     return {
@@ -313,8 +386,10 @@ def main():
 
     mlflow.set_tracking_uri(config["mlflow"]["tracking_uri"])
     client = MlflowClient()
-    experiment = client.get_experiment_by_name(config["mlflow"]["experiment_name"])
-    experiment_id = experiment.experiment_id if experiment else client.create_experiment(config["mlflow"]["experiment_name"])
+    experiment_name = config["mlflow"]["experiments"]["training"]
+    experiment = client.get_experiment_by_name(experiment_name)
+    experiment_id = experiment.experiment_id if experiment else client.create_experiment(experiment_name)
+
 
     registered = {}
     for source in config["retrain"]["model_sources"]:
@@ -367,7 +442,13 @@ def main():
                 print(f"Using best checkpoint for registration: {final_model_path}")
                 
             final_rouge = final_model_info.get("test_rougeL", 0.0)
-            register_model(source_name=final_model_name, model_dir=final_model_path, alias="Production", rouge=final_rouge)
+            register_model(
+                source_name=final_model_name,
+                model_dir=final_model_path,
+                alias="Production",
+                rouge=final_rouge,
+                training_run_id=final_model_info["run_id"]
+            )
             print(f"Registered '{final_model_name}' as Production")
 
         for name, (path, rougeL) in registered.items():
@@ -375,7 +456,19 @@ def main():
                 if path.startswith(config["paths"]["output_dir"]):
                     path = find_best_checkpoint(path)
                     print(f"Using best checkpoint for {name}: {path}")
-                register_model(source_name=name, model_dir=path, alias=f"{name}-latest", rouge=rougeL)
+                training_run_id = None
+                for r in all_results:
+                    if r["model"] == name + "_trained":
+                        training_run_id = r["run_id"]
+                        break
+
+                register_model(
+                    source_name=name,
+                    model_dir=path,
+                    alias=f"{name}-latest",
+                    rouge=rougeL,
+                    training_run_id=training_run_id
+                )
                         
         with open(os.path.join(results_dir, "best_model.txt"), "w") as f:
             f.write(f"{final_model_name}, {timestamp}, {str(final_rouge)}")
