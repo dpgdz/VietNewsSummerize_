@@ -1,0 +1,73 @@
+mlflow:
+  tracking_uri: http://127.0.0.1:5001
+  experiment_name: news_summary
+  model_name: news-summary-bartpho
+
+model:
+  base_model_type: hf
+  base_model_hf: models/bartpho-syllable
+  pretrain_model_type: local
+  pretrain_model_path: models/base_model
+  base_model_source: bartpho-pretrain-2024-v1
+  model_class: mbart
+  production_model_path: models/production/
+
+paths:
+  output_dir: outputs/
+  log_dir: logs/
+  results_dir: results/
+  artifacts_path: bartpho_base
+  fetch_cache_dir: models/production/
+  models_dir: models/
+  
+
+retrain:
+  model_sources:
+    - bartpho-base
+    - bartpho-pretrain
+    - production
+  pretrain_ratio: 0.2
+  new_data_ratio: 0.8
+  pretrain_data_path: data/pretrain/pretrain_dataset.csv
+  new_data_path: data/processed_labeled/
+  train_data_path: data/train.csv
+  eval_data_path: data/eval.csv
+
+predict:
+  max_length: 256
+  min_length: 20
+  batch_size: 8
+  use_gpu: true
+  data_path: data/daily_raw.csv
+  output_path: data/daily_summary.csv
+
+evaluation:
+  dataset_path: data/test.csv
+  metrics:
+    - rouge1
+    - rouge2
+    - rougeL
+  threshold_drop: 5
+
+model_source:
+  source_tag: jvtr
+
+experiments:
+  - name: bartpho-base
+    description: "Base model for BARTpho"
+    tags:
+      - base_model
+  - name: training
+    description: "Training model with new data"
+    tags:
+      - training
+  - name: evaluation
+    description: "Evaluation of the model"
+    tags:
+      - evaluation
+  - name: production
+    description: "Production model for inference"
+    tags:
+      - production
+
+

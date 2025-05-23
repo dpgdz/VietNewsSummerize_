@@ -1,0 +1,7 @@
+model,run_id,trained_model_path,eval_loss,eval_rouge1,eval_rouge2,eval_rougeL,eval_rougeLsum,eval_runtime,eval_samples_per_second,eval_steps_per_second,epoch,test_rouge1,test_rouge2,test_rougeL,test_rougeLsum
+bartpho-base,8dfe91eed7cb42b9a60ad765ea7948c7,outputs/bartpho-base_8dfe91ee,15.04,44.39,15.04,27.29,27.21,8.59,0.7,0.12,3.0,45.31,15.32,27.65,27.59
+bartpho-pretrain,ee8b9425b31745459ae8bcbdf9aa6ee0,outputs/bartpho-pretrain_ee8b9425,0.35,54.84,18.18,31.54,31.23,9.03,0.67,0.22,3.0,53.47,17.3,30.76,30.6
+production,725523aa8a354d11ab0565ca2245fa73,outputs/production_725523aa,0.34,54.84,18.18,31.54,31.23,6.25,0.96,0.16,3.0,53.47,17.3,30.76,30.6
+bartpho-base_raw,none,,,,,,,,,,,45.31,15.32,27.65,27.59
+bartpho-pretrain_raw,none,,,,,,,,,,,53.47,17.3,30.76,30.6
+production_raw,none,,,,,,,,,,,53.47,17.3,30.76,30.6
