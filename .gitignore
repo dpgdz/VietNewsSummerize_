@@ -38,3 +38,6 @@ mlflow.db
 
 .history/
 .history/*
+
+workflows/
+workflows/*
