@@ -297,9 +297,16 @@ def train_and_eval_log(source):
     }
 
 def main():
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+
     results_dir = config["paths"]["results_dir"]
-    output_dir = config["paths"]["output_dir"]
+    if not os.path.isabs(results_dir):
+        results_dir = os.path.join(project_root, results_dir)
+    
+    print(f"Trying to access results directory at: {results_dir}")
     os.makedirs(results_dir, exist_ok=True)
+    output_dir = config["paths"]["output_dir"]
+    os.makedirs(output_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     all_results = []
 
@@ -368,9 +375,9 @@ def main():
                     path = find_best_checkpoint(path)
                     print(f"Using best checkpoint for {name}: {path}")
                 register_model(source_name=name, model_dir=path, alias=f"{name}-latest", rouge=rougeL)
-                
+                        
         with open(os.path.join(results_dir, "best_model.txt"), "w") as f:
-            f.write(final_model_name, timestamp, str(final_rouge))
+            f.write(f"{final_model_name}, {timestamp}, {str(final_rouge)}")
 
         for r in all_results:
             path = r.get("trained_model_path")
