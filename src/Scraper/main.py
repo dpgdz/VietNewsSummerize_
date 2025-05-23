@@ -5,7 +5,7 @@ from preprocessing import preprocess_news
 from summarize import summarize_news  
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-config_path = os.path.join(current_dir, "src", "config", "config_data.json")
+config_path = os.path.abspath(os.path.join(current_dir, "..", "config", "config_data.json"))
 
 with open(config_path, "r") as f:
     config = json.load(f)
