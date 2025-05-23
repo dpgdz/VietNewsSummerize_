@@ -43,7 +43,7 @@ jobs:
           python src/model/test.py
 
       - name: Upload model artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2
         with:
           name: trained-model
           path: mlartifacts
