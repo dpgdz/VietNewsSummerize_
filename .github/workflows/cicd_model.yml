@@ -42,12 +42,6 @@ jobs:
           # Evaluate the trained model
           python src/model/test.py
 
-      - name: Upload model artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: trained-model
-          path: mlartifacts
-
   # Step 3: Register the Model in MLflow
   register_model:
     runs-on: ubuntu-latest
