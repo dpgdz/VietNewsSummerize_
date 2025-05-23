@@ -3,7 +3,7 @@ name: Model CI/CD Pipeline
 on:
   push:
     branches:
-      - main
+      - main  # Trigger on push to the main branch
   schedule:
     - cron: '0 0 * * *'  # Trigger daily for retraining (optional)
 
@@ -24,6 +24,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+  # Step 2: Train and Evaluate the Model
   train_and_eval:
     runs-on: ubuntu-latest
     needs: setup
@@ -41,12 +42,7 @@ jobs:
           # Evaluate the trained model
           python src/model/test.py
 
-      - name: Upload model artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: trained-model
-          path: mlartifacts
-
+  # Step 3: Register the Model in MLflow
   register_model:
     runs-on: ubuntu-latest
     needs: train_and_eval
@@ -58,6 +54,7 @@ jobs:
         run: |
           python src/model/register.py --source "production" --model_dir "models/production" --alias "Production"
 
+  # Step 4: Deploy the Model to Web Service (Deploy on Remote Server)
   deploy_to_server:
     runs-on: ubuntu-latest
     needs: register_model
@@ -76,6 +73,7 @@ jobs:
           # Navigate to the backend directory and pull the latest model
           cd /home/mlops/recovered/VietNewsSummerize_/
           git pull origin main
+
           # Optionally, pull the latest model artifacts from MLflow or file storage
           # Ensure the model is accessible by the backend
           docker-compose -f docker-compose.prod.yml up -d
