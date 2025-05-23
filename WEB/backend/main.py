@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import sessionmaker, Session
@@ -7,10 +11,21 @@ from pydantic import BaseModel
 from datetime import datetime
 import os
 from dotenv import load_dotenv
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
 
 
 load_dotenv()
 
+import os
+
+def get_latest_model_path(base_path="./models/production"):
+    subfolders = [os.path.join(base_path, f) for f in os.listdir(base_path)
+                  if os.path.isdir(os.path.join(base_path, f))]
+    if not subfolders:
+        raise FileNotFoundError("Không tìm thấy mô hình trong thư mục production")
+
+    latest_folder = max(subfolders, key=os.path.getmtime)
+    return latest_folder
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://newsadmin:123456@localhost:5432/newsdb")
 engine = create_engine(DATABASE_URL)
@@ -66,7 +81,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+MODEL_PATH = get_latest_model_path("./models/production")
+
+tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_PATH)
+
+summarizer = pipeline("summarization", model=model, tokenizer=tokenizer)
 
 def get_db():
     db = SessionLocal()
